@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Trox - Premium Notepad</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="icon" href="trox.png" type="image/png">
+    <link rel="apple-touch-icon" href="trox.png">
+    <link rel="manifest" href="manifest.json">
     
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <link rel="stylesheet" href="style.css">
@@ -14,13 +17,16 @@
 <body>
 
     <main class="app-container">
-        
         <aside class="sidebar" id="sidebar">
             <div class="logo-area">
-                <h2><i class="ph ph-notebook"></i> Trox</h2>
+                <img src="trox.png" alt="Trox Logo" class="app-logo" onerror="this.style.display='none'">
+                <h2>Trox</h2>
             </div>
-            <nav class="menu">
-                </nav>
+            <button id="new-note-btn" class="btn-primary" style="width: 100%; margin-bottom: 20px;">
+                <i class="ph ph-plus"></i> New Note
+            </button>
+            <div class="note-list" id="note-list">
+                </div>
         </aside>
 
         <section class="editor-area">
@@ -30,8 +36,10 @@
                     <input type="text" id="note-title" placeholder="Note Title...">
                 </div>
                 <div class="header-actions">
-                    <button id="lock-note-btn" title="Lock Note"><i class="ph ph-lock-key"></i></button>
+                    <button id="color-btn" title="Note Color"><i class="ph ph-palette"></i></button>
+                    <button id="lock-note-btn" title="Lock/Unlock"><i class="ph ph-lock-key"></i></button>
                     <button id="export-note-btn" title="Export"><i class="ph ph-export"></i></button>
+                    <button id="delete-btn" title="Delete Note" style="color: var(--danger-color);"><i class="ph ph-trash"></i></button>
                 </div>
             </header>
 
@@ -42,19 +50,17 @@
             <footer class="editor-footer">
                 <div class="word-count"><span id="words">0</span> words | <span id="chars">0</span> chars</div>
                 <div class="formatting-tools">
-                    <button><i class="ph ph-text-b"></i></button>
-                    <button><i class="ph ph-text-italic"></i></button>
+                    <span id="save-status" style="margin-right: 15px; font-size: 12px; opacity: 0.7;">Saved</span>
                 </div>
             </footer>
         </section>
-
     </main>
 
     <div class="custom-modal-overlay" id="custom-modal" style="display: none;">
         <div class="custom-modal-box">
-            <div class="modal-icon"><i class="ph ph-warning-circle"></i></div>
+            <div class="modal-icon" id="modal-icon-container"><i class="ph ph-warning-circle"></i></div>
             <h3 id="modal-title">Warning</h3>
-            <p id="modal-message">Your message here.</p>
+            <div id="modal-message"></div>
             <div class="modal-actions">
                 <button id="modal-cancel" class="btn-secondary">Cancel</button>
                 <button id="modal-confirm" class="btn-primary">Confirm</button>
