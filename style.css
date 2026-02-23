@@ -298,3 +298,81 @@ body {
         display: block; /* Show hamburger menu on mobile */
     }
 }
+/* --- CSS Variables --- */
+:root {
+    --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    --glass-bg: rgba(255, 255, 255, 0.04);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent-color: #6366f1;
+    --danger-color: #ef4444;
+    
+    --font-main: 'Poppins', 'Hind Siliguri', sans-serif;
+    --transition: all 0.3s ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); outline: none; -webkit-tap-highlight-color: transparent; }
+
+body { background: var(--bg-gradient); color: var(--text-primary); height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+
+.app-container { display: flex; width: 100%; height: 100%; max-width: 1600px; background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+/* --- Sidebar & Logo --- */
+.sidebar { width: 300px; background: rgba(15, 23, 42, 0.6); border-right: 1px solid var(--glass-border); display: flex; flex-direction: column; padding: 20px; transition: var(--transition); z-index: 100; }
+.logo-area { display: flex; align-items: center; gap: 12px; margin-bottom: 25px; }
+.app-logo { width: 35px; height: 35px; border-radius: 8px; object-fit: cover; }
+.logo-area h2 { font-size: 24px; font-weight: 600; color: var(--text-primary); }
+
+/* --- Note List --- */
+.note-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px; }
+.note-item { padding: 12px 15px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 12px; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
+.note-item:hover { background: rgba(255, 255, 255, 0.08); }
+.note-item.active { background: rgba(99, 102, 241, 0.15); border-color: var(--accent-color); }
+.note-color-indicator { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-color); flex-shrink: 0; }
+.note-item-info { flex: 1; overflow: hidden; }
+.note-item-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note-item-date { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+.note-item-lock { color: var(--danger-color); font-size: 14px; }
+
+/* --- Editor Area --- */
+.editor-area { flex: 1; display: flex; flex-direction: column; position: relative; }
+.editor-header { height: 70px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--glass-border); gap: 15px; }
+#menu-toggle { background: none; border: none; color: var(--text-secondary); font-size: 24px; cursor: pointer; display: none; }
+.note-title-input { flex: 1; }
+#note-title { width: 100%; background: transparent; border: none; color: var(--text-primary); font-size: 22px; font-weight: 500; }
+.header-actions button { background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); width: 40px; height: 40px; border-radius: 10px; font-size: 20px; cursor: pointer; transition: var(--transition); display: flex; justify-content: center; align-items: center; margin-left: 8px; }
+.header-actions button:hover { background: rgba(255, 255, 255, 0.1); }
+
+.editor-content { flex: 1; padding: 20px; overflow-y: auto; position: relative; }
+#main-editor { width: 100%; height: 100%; background: transparent; border: none; color: var(--text-primary); font-size: 16px; line-height: 1.8; resize: none; transition: filter 0.3s ease; }
+.editor-footer { height: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-top: 1px solid var(--glass-border); background: rgba(15, 23, 42, 0.2); font-size: 13px; color: var(--text-secondary); }
+
+/* --- Modal & Colors --- */
+.custom-modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 9999; opacity: 0; visibility: hidden; transition: var(--transition); }
+.custom-modal-overlay.active { opacity: 1; visibility: visible; }
+.custom-modal-box { background: rgba(30, 41, 59, 0.95); border: 1px solid var(--glass-border); border-radius: 20px; padding: 30px; width: 90%; max-width: 420px; text-align: center; box-shadow: var(--glass-shadow); transform: translateY(20px); transition: var(--transition); }
+.custom-modal-overlay.active .custom-modal-box { transform: translateY(0); }
+.modal-icon i { font-size: 50px; color: var(--accent-color); margin-bottom: 15px; }
+#modal-title { font-size: 22px; font-weight: 600; margin-bottom: 15px; }
+#modal-message { font-size: 15px; color: var(--text-secondary); margin-bottom: 25px; line-height: 1.6; }
+.modal-actions { display: flex; gap: 15px; justify-content: center; }
+.modal-actions button { padding: 12px 24px; border-radius: 10px; border: none; font-size: 15px; font-weight: 500; cursor: pointer; transition: var(--transition); flex: 1; }
+.btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--glass-border) !important; }
+.btn-primary { background: var(--accent-color); color: white; display: flex; align-items: center; justify-content: center; gap: 8px;}
+.color-options { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 15px; }
+.color-circle { width: 35px; height: 35px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: var(--transition); }
+.color-circle:hover, .color-circle.selected { transform: scale(1.2); border-color: white; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+@media (max-width: 768px) {
+    .sidebar { position: absolute; left: -100%; height: 100%; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+    .sidebar.active { left: 0; }
+    #menu-toggle { display: block; }
+}
