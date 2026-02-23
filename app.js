@@ -117,15 +117,26 @@ function loadData() {
     }
 }
 
-let saveTimeout; // ADDED: To prevent flickering on fast typing
-function saveData() {
-    const encodedData = btoa(encodeURIComponent(JSON.stringify(notes)));
-    localStorage.setItem('trox_database', encodedData);
-    saveStatus.innerText = "Saving...";
-    
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => saveStatus.innerText = "Saved", 500);
+let typingSaveTimeout; // পারফরম্যান্স ল্যাগ ঠেকানোর জন্য
+function saveCurrentNoteState() {
+    if (!currentNoteId) return;
+    const note = notes.find(n => n.id === currentNoteId);
+    if (note && !note.isLocked) {
+        note.title = titleInput.value;
+        note.content = editorInput.value;
+        note.lastUpdated = new Date().toISOString();
+        
+        // UI Status update instantly
+        saveStatus.innerText = "Saving...";
+        
+        // Debouncing logic: 500ms পর সেভ হবে
+        clearTimeout(typingSaveTimeout);
+        typingSaveTimeout = setTimeout(() => {
+            saveData(); 
+        }, 500); 
+    }
 }
+
 
 // --- Note Operations ---
 function createNewNote(switchImmediately = true) {
