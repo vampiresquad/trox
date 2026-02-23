@@ -1,5 +1,5 @@
 /* =========================================
-   Trox - Premium Notepad Master Logic
+   Trox - Premium Notepad Master Logic (v3 - Flawless & Secured)
 ========================================= */
 
 // DOM Elements
@@ -29,12 +29,26 @@ const modalIconContainer = document.getElementById('modal-icon-container');
 // App Data State
 let notes = [];
 let currentNoteId = null;
-
-// Premium Colors
 const premiumColors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#0ea5e9', '#94a3b8'];
 
-// --- Mobile Sidebar ---
-menuToggle.addEventListener('click', () => sidebar.classList.toggle('active'));
+// --- Mobile Sidebar Overlay Setup (Fixing the Sidebar Bug) ---
+const sidebarOverlay = document.createElement('div');
+sidebarOverlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:90; display:none; opacity:0; transition:all 0.3s ease; backdrop-filter:blur(3px);";
+document.body.appendChild(sidebarOverlay);
+
+menuToggle.addEventListener('click', () => {
+    sidebar.classList.add('active');
+    sidebarOverlay.style.display = 'block';
+    setTimeout(() => sidebarOverlay.style.opacity = '1', 10);
+});
+
+sidebarOverlay.addEventListener('click', closeSidebar);
+
+function closeSidebar() {
+    sidebar.classList.remove('active');
+    sidebarOverlay.style.opacity = '0';
+    setTimeout(() => sidebarOverlay.style.display = 'none', 300);
+}
 
 // --- Custom Modal System ---
 function showModal(title, messageHTML, iconClass, showCancel = false, confirmText = "Confirm", confirmCallback = null) {
@@ -45,7 +59,12 @@ function showModal(title, messageHTML, iconClass, showCancel = false, confirmTex
     
     modalCancel.style.display = showCancel ? 'inline-block' : 'none';
     modalOverlay.style.display = 'flex';
-    setTimeout(() => modalOverlay.classList.add('active'), 10);
+    setTimeout(() => {
+        modalOverlay.classList.add('active');
+        // Auto-focus input if exists
+        const passInput = document.getElementById('pass-input');
+        if(passInput) passInput.focus();
+    }, 10);
 
     let newConfirm = modalConfirm.cloneNode(true);
     modalConfirm.parentNode.replaceChild(newConfirm, modalConfirm);
@@ -71,13 +90,15 @@ function loadData() {
     if (data) {
         try {
             notes = JSON.parse(decodeURIComponent(atob(data)));
-        } catch (e) { console.error("Data decode error"); notes = []; }
+        } catch (e) { notes = []; }
     }
     
-    if (notes.length === 0) createNewNote(false);
-    else switchNote(notes[0].id);
-    
-    renderSidebar();
+    if (notes.length === 0) {
+        createNewNote(false);
+    } else {
+        renderSidebar();
+        switchNote(notes[0].id);
+    }
 }
 
 function saveData() {
@@ -93,22 +114,23 @@ function createNewNote(switchImmediately = true) {
         id: Date.now().toString(),
         title: '',
         content: '',
-        color: premiumColors[0], // Default color
+        color: premiumColors[0],
         password: null,
         isLocked: false,
         lastUpdated: new Date().toISOString()
     };
-    notes.unshift(newNote); // Add to top
+    notes.unshift(newNote);
     saveData();
     renderSidebar();
     if(switchImmediately) switchNote(newNote.id);
 }
 
 function switchNote(id) {
-    saveCurrentNoteState();
+    saveCurrentNoteState(); // Save previous note first
     currentNoteId = id;
     const note = notes.find(n => n.id === currentNoteId);
-    
+    if (!note) return;
+
     titleInput.value = note.title;
     
     // UI Update
@@ -116,7 +138,8 @@ function switchNote(id) {
     const activeEl = document.getElementById(`note-${id}`);
     if(activeEl) activeEl.classList.add('active');
     
-    if (window.innerWidth <= 768) sidebar.classList.remove('active'); // Auto hide sidebar on mobile
+    // Close sidebar automatically on mobile when a note is selected
+    if (window.innerWidth <= 768) closeSidebar(); 
 
     updateLockUI(note);
     if (!note.isLocked) {
@@ -133,7 +156,6 @@ function saveCurrentNoteState() {
         note.content = editorInput.value;
         note.lastUpdated = new Date().toISOString();
         saveData();
-        renderSidebar(); // Update title in sidebar
     }
 }
 
@@ -162,7 +184,10 @@ function renderSidebar() {
 }
 
 // --- Real-time Listeners ---
-titleInput.addEventListener('input', saveCurrentNoteState);
+titleInput.addEventListener('input', () => {
+    saveCurrentNoteState();
+    renderSidebar(); // Update title live in sidebar
+});
 editorInput.addEventListener('input', () => {
     updateCounters();
     saveCurrentNoteState();
@@ -174,13 +199,13 @@ function updateCounters() {
     wordsCount.innerText = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
 }
 
-// --- Advanced Password & Lock System ---
+// --- Advanced Password & Lock System (Secured) ---
 function updateLockUI(note) {
     if (note.isLocked) {
         editorInput.style.filter = 'blur(10px)';
         editorInput.disabled = true;
         titleInput.disabled = true;
-        editorInput.value = ""; // Hide real content from DOM
+        editorInput.value = ""; // Hide content
         lockBtn.innerHTML = '<i class="ph ph-lock"></i>';
         lockBtn.style.color = 'var(--danger-color)';
     } else {
@@ -199,34 +224,33 @@ lockBtn.addEventListener('click', () => {
     
     if (!note.isLocked) {
         if (!note.password) {
-            // Set Custom Alphanumeric Password
             const msg = `<p>Set a strong password (letters, numbers, symbols) to lock this note.</p>
                          <input type="password" id="pass-input" style="${inputStyle}" placeholder="Enter new password">`;
             showModal("Secure Note", msg, "ph ph-shield-check", true, "Lock Note", () => {
                 const passVal = document.getElementById('pass-input').value.trim();
                 if (passVal.length >= 4) {
+                    saveCurrentNoteState(); // FIX: Save content BEFORE locking
                     note.password = passVal;
                     note.isLocked = true;
-                    saveCurrentNoteState(); // Save content before locking
                     saveData();
                     updateLockUI(note);
                     renderSidebar();
                 } else {
-                    document.getElementById('pass-input').style.borderColor = 'var(--danger-color)';
-                    document.getElementById('pass-input').placeholder = "Minimum 4 characters required";
+                    const inputField = document.getElementById('pass-input');
+                    inputField.style.borderColor = 'var(--danger-color)';
+                    inputField.value = "";
+                    inputField.placeholder = "Minimum 4 characters required!";
                     return false;
                 }
             });
         } else {
-            // Lock immediately since password exists
-            saveCurrentNoteState();
+            saveCurrentNoteState(); // FIX: Save content BEFORE locking
             note.isLocked = true;
             saveData();
             updateLockUI(note);
             renderSidebar();
         }
     } else {
-        // Unlock Note
         const msg = `<p>This note is protected. Please enter your password.</p>
                      <input type="password" id="pass-input" style="${inputStyle}" placeholder="Password">`;
         showModal("Unlock Note", msg, "ph ph-lock", true, "Unlock", () => {
@@ -239,23 +263,25 @@ lockBtn.addEventListener('click', () => {
                 updateCounters();
                 renderSidebar();
             } else {
-                document.getElementById('pass-input').style.borderColor = 'var(--danger-color)';
-                document.getElementById('pass-input').value = "";
-                document.getElementById('pass-input').placeholder = "Wrong Password!";
+                const inputField = document.getElementById('pass-input');
+                inputField.style.borderColor = 'var(--danger-color)';
+                inputField.value = "";
+                inputField.placeholder = "Wrong Password!";
                 return false;
             }
         });
     }
 });
 
-// --- Note Color Setter ---
+// --- Note Color Setter (Fixed Cancel Bug) ---
 colorBtn.addEventListener('click', () => {
     const note = notes.find(n => n.id === currentNoteId);
     if(note.isLocked) {
-        showModal("Locked", "Unlock the note to change its color.", "ph ph-lock", false, "OK");
+        showModal("Access Denied", "Unlock the note first to change its color.", "ph ph-lock", false, "OK");
         return;
     }
     
+    let tempSelectedColor = note.color; // FIX: Temporary variable
     let colorHTML = '<div class="color-options">';
     premiumColors.forEach(color => {
         const isSelected = note.color === color ? 'selected' : '';
@@ -264,24 +290,30 @@ colorBtn.addEventListener('click', () => {
     colorHTML += '</div>';
 
     showModal("Set Note Color", colorHTML, "ph ph-palette", true, "Save", () => {
+        note.color = tempSelectedColor; // Apply only on save
         saveData();
         renderSidebar();
     });
 
-    // Add selection logic inside modal
     setTimeout(() => {
         document.querySelectorAll('.color-circle').forEach(circle => {
             circle.addEventListener('click', (e) => {
                 document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
                 e.target.classList.add('selected');
-                note.color = e.target.getAttribute('data-color'); // Update state
+                tempSelectedColor = e.target.getAttribute('data-color');
             });
         });
     }, 50);
 });
 
-// --- Delete Note ---
+// --- Delete Note (Secured) ---
 deleteBtn.addEventListener('click', () => {
+    const note = notes.find(n => n.id === currentNoteId);
+    if (note.isLocked) { // FIX: Prevent deleting locked notes
+        showModal("Action Denied", "You cannot delete a locked note. Please unlock it first.", "ph ph-shield-warning", false, "OK");
+        return;
+    }
+
     showModal("Delete Note?", "Are you sure you want to delete this note? This action cannot be undone.", "ph ph-trash", true, "Delete", () => {
         notes = notes.filter(n => n.id !== currentNoteId);
         saveData();
@@ -294,7 +326,7 @@ deleteBtn.addEventListener('click', () => {
 document.getElementById('export-note-btn').addEventListener('click', () => {
     const note = notes.find(n => n.id === currentNoteId);
     if(note.isLocked) {
-        showModal("Locked", "Please unlock the note first to export.", "ph ph-lock", false, "OK");
+        showModal("Access Denied", "Please unlock the note first to export.", "ph ph-lock", false, "OK");
         return;
     }
     if (editorInput.value.trim() === '') {
