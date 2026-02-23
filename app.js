@@ -30,10 +30,14 @@ let notes = [];
 let currentNoteId = null;
 const premiumColors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#0ea5e9', '#94a3b8'];
 
-// --- Mobile Sidebar Overlay Setup (Fixing the Sidebar Bug) ---
+// --- Mobile Sidebar Overlay Setup (Flawless Fix) ---
 const sidebarOverlay = document.createElement('div');
-sidebarOverlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:90; display:none; opacity:0; transition:all 0.3s ease; backdrop-filter:blur(3px);";
-document.body.appendChild(sidebarOverlay);
+sidebarOverlay.style.cssText = "position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:90; display:none; opacity:0; transition:all 0.3s ease; backdrop-filter:blur(5px);";
+
+const appContainer = document.querySelector('.app-container');
+appContainer.style.position = 'relative'; // Stacking context fix
+appContainer.appendChild(sidebarOverlay);
+
 
 menuToggle.addEventListener('click', () => {
     sidebar.classList.add('active');
