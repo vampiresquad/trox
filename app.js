@@ -1,5 +1,5 @@
 /* =========================================
-   Trox - Premium Notepad Logic (v2 - Secured)
+   Trox - Premium Notepad Master Logic
 ========================================= */
 
 // DOM Elements
@@ -7,7 +7,16 @@ const titleInput = document.getElementById('note-title');
 const editorInput = document.getElementById('main-editor');
 const wordsCount = document.getElementById('words');
 const charsCount = document.getElementById('chars');
+const saveStatus = document.getElementById('save-status');
+const noteListContainer = document.getElementById('note-list');
+
+// Buttons
 const lockBtn = document.getElementById('lock-note-btn');
+const colorBtn = document.getElementById('color-btn');
+const deleteBtn = document.getElementById('delete-btn');
+const newNoteBtn = document.getElementById('new-note-btn');
+const menuToggle = document.getElementById('menu-toggle');
+const sidebar = document.getElementById('sidebar');
 
 // Modal Elements
 const modalOverlay = document.getElementById('custom-modal');
@@ -15,206 +24,295 @@ const modalTitle = document.getElementById('modal-title');
 const modalMessage = document.getElementById('modal-message');
 const modalConfirm = document.getElementById('modal-confirm');
 const modalCancel = document.getElementById('modal-cancel');
+const modalIconContainer = document.getElementById('modal-icon-container');
 
-// Sidebar Elements
-const menuToggle = document.getElementById('menu-toggle');
-const sidebar = document.getElementById('sidebar');
+// App Data State
+let notes = [];
+let currentNoteId = null;
 
-// Security State
-let isLocked = localStorage.getItem('trox_is_locked') === 'true';
-let currentPin = localStorage.getItem('trox_pin') || null;
+// Premium Colors
+const premiumColors = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#0ea5e9', '#94a3b8'];
 
-// --- Mobile Sidebar Toggle ---
-menuToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('active');
-});
+// --- Mobile Sidebar ---
+menuToggle.addEventListener('click', () => sidebar.classList.toggle('active'));
 
-// --- Custom Premium Modal Logic (Updated for HTML Input) ---
-function showModal(title, messageHTML, showCancel = false, confirmCallback = null) {
+// --- Custom Modal System ---
+function showModal(title, messageHTML, iconClass, showCancel = false, confirmText = "Confirm", confirmCallback = null) {
     modalTitle.innerText = title;
-    modalMessage.innerHTML = messageHTML; // Updated to allow custom input fields
+    modalMessage.innerHTML = messageHTML;
+    modalIconContainer.innerHTML = `<i class="${iconClass}"></i>`;
+    modalConfirm.innerText = confirmText;
     
     modalCancel.style.display = showCancel ? 'inline-block' : 'none';
-    
     modalOverlay.style.display = 'flex';
-    setTimeout(() => { modalOverlay.classList.add('active'); }, 10);
+    setTimeout(() => modalOverlay.classList.add('active'), 10);
 
     let newConfirm = modalConfirm.cloneNode(true);
     modalConfirm.parentNode.replaceChild(newConfirm, modalConfirm);
-    
     let newCancel = modalCancel.cloneNode(true);
     modalCancel.parentNode.replaceChild(newCancel, modalCancel);
 
-    const currentConfirm = document.getElementById('modal-confirm');
-    const currentCancel = document.getElementById('modal-cancel');
-
-    currentConfirm.addEventListener('click', () => {
+    document.getElementById('modal-confirm').addEventListener('click', () => {
         if (confirmCallback) {
-            // If callback returns false, don't close modal (useful for wrong PIN)
             if(confirmCallback() !== false) closeModal();
-        } else {
-            closeModal();
-        }
+        } else closeModal();
     });
-
-    currentCancel.addEventListener('click', closeModal);
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
 }
 
 function closeModal() {
     modalOverlay.classList.remove('active');
-    setTimeout(() => { modalOverlay.style.display = 'none'; }, 300);
+    setTimeout(() => modalOverlay.style.display = 'none', 300);
 }
 
-// --- Live Counter ---
-function updateCounters() {
-    if(isLocked) return;
-    const text = editorInput.value;
-    charsCount.innerText = text.length;
-    const wordsArray = text.trim().split(/\s+/);
-    wordsCount.innerText = text.trim() === '' ? 0 : wordsArray.length;
+// --- Data Management (Base64 Array) ---
+function loadData() {
+    const data = localStorage.getItem('trox_database');
+    if (data) {
+        try {
+            notes = JSON.parse(decodeURIComponent(atob(data)));
+        } catch (e) { console.error("Data decode error"); notes = []; }
+    }
+    
+    if (notes.length === 0) createNewNote(false);
+    else switchNote(notes[0].id);
+    
+    renderSidebar();
 }
 
-// --- Real-time Auto Save (Base64 Encoded for Privacy) ---
-function saveNote() {
-    if(isLocked) return; // Don't save empty/blurred state
-    const noteData = {
-        title: titleInput.value || '',
-        content: editorInput.value,
+function saveData() {
+    const encodedData = btoa(encodeURIComponent(JSON.stringify(notes)));
+    localStorage.setItem('trox_database', encodedData);
+    saveStatus.innerText = "Saving...";
+    setTimeout(() => saveStatus.innerText = "Saved", 500);
+}
+
+// --- Note Operations ---
+function createNewNote(switchImmediately = true) {
+    const newNote = {
+        id: Date.now().toString(),
+        title: '',
+        content: '',
+        color: premiumColors[0], // Default color
+        password: null,
+        isLocked: false,
         lastUpdated: new Date().toISOString()
     };
-    // Encoding to Base64 so casual users can't read it easily in DevTools
-    const encodedData = btoa(encodeURIComponent(JSON.stringify(noteData)));
-    localStorage.setItem('trox_active_note', encodedData);
+    notes.unshift(newNote); // Add to top
+    saveData();
+    renderSidebar();
+    if(switchImmediately) switchNote(newNote.id);
 }
 
-titleInput.addEventListener('input', saveNote);
+function switchNote(id) {
+    saveCurrentNoteState();
+    currentNoteId = id;
+    const note = notes.find(n => n.id === currentNoteId);
+    
+    titleInput.value = note.title;
+    
+    // UI Update
+    document.querySelectorAll('.note-item').forEach(el => el.classList.remove('active'));
+    const activeEl = document.getElementById(`note-${id}`);
+    if(activeEl) activeEl.classList.add('active');
+    
+    if (window.innerWidth <= 768) sidebar.classList.remove('active'); // Auto hide sidebar on mobile
+
+    updateLockUI(note);
+    if (!note.isLocked) {
+        editorInput.value = note.content;
+        updateCounters();
+    }
+}
+
+function saveCurrentNoteState() {
+    if (!currentNoteId) return;
+    const note = notes.find(n => n.id === currentNoteId);
+    if (note && !note.isLocked) {
+        note.title = titleInput.value;
+        note.content = editorInput.value;
+        note.lastUpdated = new Date().toISOString();
+        saveData();
+        renderSidebar(); // Update title in sidebar
+    }
+}
+
+// --- Sidebar Render ---
+function renderSidebar() {
+    noteListContainer.innerHTML = '';
+    notes.forEach(note => {
+        const dateStr = new Date(note.lastUpdated).toLocaleDateString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'});
+        const displayTitle = note.title.trim() === '' ? 'Untitled Note' : note.title;
+        
+        const noteEl = document.createElement('div');
+        noteEl.className = `note-item ${note.id === currentNoteId ? 'active' : ''}`;
+        noteEl.id = `note-${note.id}`;
+        noteEl.onclick = () => { if(note.id !== currentNoteId) switchNote(note.id); };
+        
+        noteEl.innerHTML = `
+            <div class="note-color-indicator" style="background-color: ${note.color}"></div>
+            <div class="note-item-info">
+                <div class="note-item-title">${note.isLocked ? 'Locked Note' : displayTitle}</div>
+                <div class="note-item-date">${dateStr}</div>
+            </div>
+            ${note.isLocked ? '<div class="note-item-lock"><i class="ph ph-lock-key"></i></div>' : ''}
+        `;
+        noteListContainer.appendChild(noteEl);
+    });
+}
+
+// --- Real-time Listeners ---
+titleInput.addEventListener('input', saveCurrentNoteState);
 editorInput.addEventListener('input', () => {
     updateCounters();
-    saveNote();
+    saveCurrentNoteState();
 });
 
-// --- Load Saved Note on Startup ---
-window.addEventListener('DOMContentLoaded', () => {
-    updateLockUI(); // Check lock status first
-    
-    const savedData = localStorage.getItem('trox_active_note');
-    if (savedData && !isLocked) {
-        try {
-            const decodedData = JSON.parse(decodeURIComponent(atob(savedData)));
-            titleInput.value = decodedData.title;
-            editorInput.value = decodedData.content;
-            updateCounters();
-        } catch (e) {
-            console.error("Data decoding failed.");
-        }
-    }
-});
-
-// --- Export Functionality ---
-document.getElementById('export-note-btn').addEventListener('click', () => {
-    if(isLocked) {
-        showModal("Locked", "Please unlock the note first to export.", false);
-        return;
-    }
-    const textContent = editorInput.value.trim();
-    if (textContent === '') {
-        showModal("Empty Note", "There is nothing to export. Please write something first.", false);
-        return;
-    }
-    const warningMessage = "Since Trox uses Local Storage, your notes might be deleted if you clear your browser data. Do you want to download this note as a .txt file now?";
-    showModal("Export & Backup", warningMessage, true, () => {
-        downloadTxtFile();
-    });
-});
-
-function downloadTxtFile() {
-    const title = titleInput.value.trim() || 'Trox_Untitled';
-    const text = `${title}\n\n${editorInput.value}`;
-    const blob = new Blob([text], { type: 'text/plain' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${title}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+function updateCounters() {
+    const text = editorInput.value;
+    charsCount.innerText = text.length;
+    wordsCount.innerText = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
 }
 
-// --- Advanced PIN Lock System ---
-function updateLockUI() {
-    if (isLocked) {
-        editorInput.style.filter = 'blur(8px)';
-        editorInput.style.userSelect = 'none';
+// --- Advanced Password & Lock System ---
+function updateLockUI(note) {
+    if (note.isLocked) {
+        editorInput.style.filter = 'blur(10px)';
         editorInput.disabled = true;
         titleInput.disabled = true;
+        editorInput.value = ""; // Hide real content from DOM
         lockBtn.innerHTML = '<i class="ph ph-lock"></i>';
         lockBtn.style.color = 'var(--danger-color)';
-        // Hide content temporarily from DOM
-        editorInput.dataset.realValue = editorInput.value;
-        editorInput.value = ""; 
     } else {
         editorInput.style.filter = 'none';
-        editorInput.style.userSelect = 'auto';
         editorInput.disabled = false;
         titleInput.disabled = false;
-        lockBtn.innerHTML = '<i class="ph ph-lock-key"></i>';
+        lockBtn.innerHTML = '<i class="ph ph-lock-key-open"></i>';
         lockBtn.style.color = 'var(--text-primary)';
-        // Restore content
-        if(editorInput.dataset.realValue) {
-            editorInput.value = editorInput.dataset.realValue;
-        }
     }
 }
 
-const pinInputStyle = "margin-top: 15px; padding: 12px; width: 100%; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; text-align: center; font-size: 24px; letter-spacing: 10px; outline: none;";
+const inputStyle = "margin-top:15px; padding:12px; width:100%; border-radius:8px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.3); color:white; font-size:16px; outline:none;";
 
 lockBtn.addEventListener('click', () => {
-    if (!isLocked) {
-        if (!currentPin) {
-            // Set new PIN
-            const msg = `<p>Set a 4-digit PIN to secure your notes.</p><input type="password" id="pin-input" maxlength="4" style="${pinInputStyle}" placeholder="****">`;
-            showModal("Setup Security PIN", msg, true, () => {
-                const pinVal = document.getElementById('pin-input').value;
-                if (pinVal.length === 4 && !isNaN(pinVal)) {
-                    currentPin = pinVal;
-                    localStorage.setItem('trox_pin', currentPin);
-                    isLocked = true;
-                    localStorage.setItem('trox_is_locked', 'true');
-                    saveNote(); // Save before locking
-                    updateLockUI();
+    const note = notes.find(n => n.id === currentNoteId);
+    
+    if (!note.isLocked) {
+        if (!note.password) {
+            // Set Custom Alphanumeric Password
+            const msg = `<p>Set a strong password (letters, numbers, symbols) to lock this note.</p>
+                         <input type="password" id="pass-input" style="${inputStyle}" placeholder="Enter new password">`;
+            showModal("Secure Note", msg, "ph ph-shield-check", true, "Lock Note", () => {
+                const passVal = document.getElementById('pass-input').value.trim();
+                if (passVal.length >= 4) {
+                    note.password = passVal;
+                    note.isLocked = true;
+                    saveCurrentNoteState(); // Save content before locking
+                    saveData();
+                    updateLockUI(note);
+                    renderSidebar();
                 } else {
-                    document.getElementById('pin-input').style.borderColor = 'var(--danger-color)';
-                    return false; // Prevents modal from closing
+                    document.getElementById('pass-input').style.borderColor = 'var(--danger-color)';
+                    document.getElementById('pass-input').placeholder = "Minimum 4 characters required";
+                    return false;
                 }
             });
         } else {
-            // Lock immediately
-            isLocked = true;
-            localStorage.setItem('trox_is_locked', 'true');
-            saveNote();
-            updateLockUI();
+            // Lock immediately since password exists
+            saveCurrentNoteState();
+            note.isLocked = true;
+            saveData();
+            updateLockUI(note);
+            renderSidebar();
         }
     } else {
-        // Unlock
-        const msg = `<p>Enter your 4-digit PIN to unlock.</p><input type="password" id="pin-input" maxlength="4" style="${pinInputStyle}" placeholder="****">`;
-        showModal("Unlock Note", msg, true, () => {
-            const pinVal = document.getElementById('pin-input').value;
-            if (pinVal === currentPin) {
-                isLocked = false;
-                localStorage.setItem('trox_is_locked', 'false');
-                updateLockUI();
-                
-                // Reload data securely
-                const savedData = localStorage.getItem('trox_active_note');
-                if (savedData) {
-                    const decodedData = JSON.parse(decodeURIComponent(atob(savedData)));
-                    titleInput.value = decodedData.title;
-                    editorInput.value = decodedData.content;
-                    updateCounters();
-                }
+        // Unlock Note
+        const msg = `<p>This note is protected. Please enter your password.</p>
+                     <input type="password" id="pass-input" style="${inputStyle}" placeholder="Password">`;
+        showModal("Unlock Note", msg, "ph ph-lock", true, "Unlock", () => {
+            const passVal = document.getElementById('pass-input').value;
+            if (passVal === note.password) {
+                note.isLocked = false;
+                saveData();
+                updateLockUI(note);
+                editorInput.value = note.content; // Restore content
+                updateCounters();
+                renderSidebar();
             } else {
-                document.getElementById('pin-input').style.borderColor = 'var(--danger-color)';
-                return false; // Prevents modal from closing
+                document.getElementById('pass-input').style.borderColor = 'var(--danger-color)';
+                document.getElementById('pass-input').value = "";
+                document.getElementById('pass-input').placeholder = "Wrong Password!";
+                return false;
             }
         });
     }
 });
+
+// --- Note Color Setter ---
+colorBtn.addEventListener('click', () => {
+    const note = notes.find(n => n.id === currentNoteId);
+    if(note.isLocked) {
+        showModal("Locked", "Unlock the note to change its color.", "ph ph-lock", false, "OK");
+        return;
+    }
+    
+    let colorHTML = '<div class="color-options">';
+    premiumColors.forEach(color => {
+        const isSelected = note.color === color ? 'selected' : '';
+        colorHTML += `<div class="color-circle ${isSelected}" style="background-color: ${color}" data-color="${color}"></div>`;
+    });
+    colorHTML += '</div>';
+
+    showModal("Set Note Color", colorHTML, "ph ph-palette", true, "Save", () => {
+        saveData();
+        renderSidebar();
+    });
+
+    // Add selection logic inside modal
+    setTimeout(() => {
+        document.querySelectorAll('.color-circle').forEach(circle => {
+            circle.addEventListener('click', (e) => {
+                document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
+                e.target.classList.add('selected');
+                note.color = e.target.getAttribute('data-color'); // Update state
+            });
+        });
+    }, 50);
+});
+
+// --- Delete Note ---
+deleteBtn.addEventListener('click', () => {
+    showModal("Delete Note?", "Are you sure you want to delete this note? This action cannot be undone.", "ph ph-trash", true, "Delete", () => {
+        notes = notes.filter(n => n.id !== currentNoteId);
+        saveData();
+        if (notes.length === 0) createNewNote(true);
+        else switchNote(notes[0].id);
+    });
+});
+
+// --- Export Note ---
+document.getElementById('export-note-btn').addEventListener('click', () => {
+    const note = notes.find(n => n.id === currentNoteId);
+    if(note.isLocked) {
+        showModal("Locked", "Please unlock the note first to export.", "ph ph-lock", false, "OK");
+        return;
+    }
+    if (editorInput.value.trim() === '') {
+        showModal("Empty Note", "There is nothing to export.", "ph ph-warning-circle", false, "OK");
+        return;
+    }
+    showModal("Export & Backup", "Do you want to download this note as a .txt file now?", "ph ph-download-simple", true, "Download", () => {
+        const title = titleInput.value.trim() || 'Trox_Untitled';
+        const blob = new Blob([`${title}\n\n${editorInput.value}`], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${title}.txt`;
+        link.click();
+    });
+});
+
+// --- Buttons Setup ---
+newNoteBtn.addEventListener('click', () => createNewNote(true));
+
+// Initialize
+window.addEventListener('DOMContentLoaded', loadData);
