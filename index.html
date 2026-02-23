@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Trox - Premium Notepad</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <main class="app-container">
+        
+        <aside class="sidebar" id="sidebar">
+            <div class="logo-area">
+                <h2><i class="ph ph-notebook"></i> Trox</h2>
+            </div>
+            <nav class="menu">
+                </nav>
+        </aside>
+
+        <section class="editor-area">
+            <header class="editor-header">
+                <button id="menu-toggle"><i class="ph ph-list"></i></button>
+                <div class="note-title-input">
+                    <input type="text" id="note-title" placeholder="Note Title...">
+                </div>
+                <div class="header-actions">
+                    <button id="lock-note-btn" title="Lock Note"><i class="ph ph-lock-key"></i></button>
+                    <button id="export-note-btn" title="Export"><i class="ph ph-export"></i></button>
+                </div>
+            </header>
+
+            <div class="editor-content">
+                <textarea id="main-editor" placeholder="Start typing your masterpiece here..."></textarea>
+            </div>
+
+            <footer class="editor-footer">
+                <div class="word-count"><span id="words">0</span> words | <span id="chars">0</span> chars</div>
+                <div class="formatting-tools">
+                    <button><i class="ph ph-text-b"></i></button>
+                    <button><i class="ph ph-text-italic"></i></button>
+                </div>
+            </footer>
+        </section>
+
+    </main>
+
+    <div class="custom-modal-overlay" id="custom-modal" style="display: none;">
+        <div class="custom-modal-box">
+            <div class="modal-icon"><i class="ph ph-warning-circle"></i></div>
+            <h3 id="modal-title">Warning</h3>
+            <p id="modal-message">Your message here.</p>
+            <div class="modal-actions">
+                <button id="modal-cancel" class="btn-secondary">Cancel</button>
+                <button id="modal-confirm" class="btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
