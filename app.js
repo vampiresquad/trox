@@ -22,9 +22,8 @@ const sidebar = document.getElementById('sidebar');
 const modalOverlay = document.getElementById('custom-modal');
 const modalTitle = document.getElementById('modal-title');
 const modalMessage = document.getElementById('modal-message');
-const modalConfirm = document.getElementById('modal-confirm');
-const modalCancel = document.getElementById('modal-cancel');
 const modalIconContainer = document.getElementById('modal-icon-container');
+// Note: modalConfirm & modalCancel are dynamically fetched inside showModal to prevent crash
 
 // App Data State
 let notes = [];
@@ -50,26 +49,39 @@ function closeSidebar() {
     setTimeout(() => sidebarOverlay.style.display = 'none', 300);
 }
 
-// --- Custom Modal System ---
+// --- Custom Modal System (Fixed Node Cloning Crash Bug) ---
 function showModal(title, messageHTML, iconClass, showCancel = false, confirmText = "Confirm", confirmCallback = null) {
     modalTitle.innerText = title;
     modalMessage.innerHTML = messageHTML;
     modalIconContainer.innerHTML = `<i class="${iconClass}"></i>`;
-    modalConfirm.innerText = confirmText;
     
-    modalCancel.style.display = showCancel ? 'inline-block' : 'none';
+    let currentConfirm = document.getElementById('modal-confirm');
+    let currentCancel = document.getElementById('modal-cancel');
+    
+    currentConfirm.innerText = confirmText;
+    currentCancel.style.display = showCancel ? 'inline-block' : 'none';
     modalOverlay.style.display = 'flex';
+    
     setTimeout(() => {
         modalOverlay.classList.add('active');
-        // Auto-focus input if exists
+        // Auto-focus input and bind show password if exists
         const passInput = document.getElementById('pass-input');
+        const showPassCb = document.getElementById('show-pass-cb');
         if(passInput) passInput.focus();
+        
+        if(passInput && showPassCb) {
+            showPassCb.addEventListener('change', (e) => {
+                passInput.type = e.target.checked ? 'text' : 'password';
+            });
+        }
     }, 10);
 
-    let newConfirm = modalConfirm.cloneNode(true);
-    modalConfirm.parentNode.replaceChild(newConfirm, modalConfirm);
-    let newCancel = modalCancel.cloneNode(true);
-    modalCancel.parentNode.replaceChild(newCancel, modalCancel);
+    // Flawless Event Listener reset without causing DOM crash
+    let newConfirm = currentConfirm.cloneNode(true);
+    currentConfirm.parentNode.replaceChild(newConfirm, currentConfirm);
+    
+    let newCancel = currentCancel.cloneNode(true);
+    currentCancel.parentNode.replaceChild(newCancel, currentCancel);
 
     document.getElementById('modal-confirm').addEventListener('click', () => {
         if (confirmCallback) {
@@ -84,7 +96,7 @@ function closeModal() {
     setTimeout(() => modalOverlay.style.display = 'none', 300);
 }
 
-// --- Data Management (Base64 Array) ---
+// --- Data Management (Base64 Array & Debounced Save) ---
 function loadData() {
     const data = localStorage.getItem('trox_database');
     if (data) {
@@ -101,11 +113,14 @@ function loadData() {
     }
 }
 
+let saveTimeout; // ADDED: To prevent flickering on fast typing
 function saveData() {
     const encodedData = btoa(encodeURIComponent(JSON.stringify(notes)));
     localStorage.setItem('trox_database', encodedData);
     saveStatus.innerText = "Saving...";
-    setTimeout(() => saveStatus.innerText = "Saved", 500);
+    
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => saveStatus.innerText = "Saved", 500);
 }
 
 // --- Note Operations ---
@@ -199,7 +214,7 @@ function updateCounters() {
     wordsCount.innerText = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
 }
 
-// --- Advanced Password & Lock System (Secured) ---
+// --- Advanced Password & Lock System (Secured & Upgraded) ---
 function updateLockUI(note) {
     if (note.isLocked) {
         editorInput.style.filter = 'blur(10px)';
@@ -217,18 +232,23 @@ function updateLockUI(note) {
     }
 }
 
-const inputStyle = "margin-top:15px; padding:12px; width:100%; border-radius:8px; border:1px solid var(--glass-border); background:rgba(0,0,0,0.3); color:white; font-size:16px; outline:none;";
+const inputStyle = "margin-top:15px; padding:12px; width:100%; border-radius:8px; border:1px solid #ccc; font-size:16px; outline:none; font-family: 'Poppins', sans-serif; box-sizing: border-box;";
 
 lockBtn.addEventListener('click', () => {
     const note = notes.find(n => n.id === currentNoteId);
     
     if (!note.isLocked) {
         if (!note.password) {
-            const msg = `<p>Set a strong password (letters, numbers, symbols) to lock this note.</p>
-                         <input type="password" id="pass-input" style="${inputStyle}" placeholder="Enter new password">`;
+            const msg = `<p style="font-size:14px; color:#555;">Set a strong password (Letters, Numbers, Symbols) to lock this note.</p>
+                         <input type="password" id="pass-input" style="${inputStyle}" placeholder="Create password (min 4 chars)">
+                         <div style="text-align: right; margin-top: 8px;">
+                             <label style="font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                                 <input type="checkbox" id="show-pass-cb"> Show Password
+                             </label>
+                         </div>`;
             showModal("Secure Note", msg, "ph ph-shield-check", true, "Lock Note", () => {
                 const passVal = document.getElementById('pass-input').value.trim();
-                if (passVal.length >= 4) {
+                if (passVal.length >= 4) { // Allows any character: numbers, alphabets, specials
                     saveCurrentNoteState(); // FIX: Save content BEFORE locking
                     note.password = passVal;
                     note.isLocked = true;
@@ -240,7 +260,7 @@ lockBtn.addEventListener('click', () => {
                     inputField.style.borderColor = 'var(--danger-color)';
                     inputField.value = "";
                     inputField.placeholder = "Minimum 4 characters required!";
-                    return false;
+                    return false; // Prevents modal from closing
                 }
             });
         } else {
@@ -251,8 +271,13 @@ lockBtn.addEventListener('click', () => {
             renderSidebar();
         }
     } else {
-        const msg = `<p>This note is protected. Please enter your password.</p>
-                     <input type="password" id="pass-input" style="${inputStyle}" placeholder="Password">`;
+        const msg = `<p style="font-size:14px; color:#555;">This note is protected. Please enter your password.</p>
+                     <input type="password" id="pass-input" style="${inputStyle}" placeholder="Enter password">
+                     <div style="text-align: right; margin-top: 8px;">
+                         <label style="font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                             <input type="checkbox" id="show-pass-cb"> Show Password
+                         </label>
+                     </div>`;
         showModal("Unlock Note", msg, "ph ph-lock", true, "Unlock", () => {
             const passVal = document.getElementById('pass-input').value;
             if (passVal === note.password) {
@@ -282,10 +307,10 @@ colorBtn.addEventListener('click', () => {
     }
     
     let tempSelectedColor = note.color; // FIX: Temporary variable
-    let colorHTML = '<div class="color-options">';
+    let colorHTML = '<div class="color-options" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:15px;">';
     premiumColors.forEach(color => {
-        const isSelected = note.color === color ? 'selected' : '';
-        colorHTML += `<div class="color-circle ${isSelected}" style="background-color: ${color}" data-color="${color}"></div>`;
+        const isSelected = note.color === color ? 'border: 3px solid #333;' : 'border: 2px solid transparent;';
+        colorHTML += `<div class="color-circle" style="background-color: ${color}; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; transition: 0.3s; ${isSelected}" data-color="${color}"></div>`;
     });
     colorHTML += '</div>';
 
@@ -298,8 +323,8 @@ colorBtn.addEventListener('click', () => {
     setTimeout(() => {
         document.querySelectorAll('.color-circle').forEach(circle => {
             circle.addEventListener('click', (e) => {
-                document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('selected'));
-                e.target.classList.add('selected');
+                document.querySelectorAll('.color-circle').forEach(c => c.style.border = '2px solid transparent');
+                e.target.style.border = '3px solid #333';
                 tempSelectedColor = e.target.getAttribute('data-color');
             });
         });
