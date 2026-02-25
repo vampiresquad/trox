@@ -1,6 +1,12 @@
 /* =========================================
    Trox - Premium Notepad Master Logic (v3 - Flawless & Secured)
 ========================================= */
+function escapeHTML(str) {
+    if(!str) return "";
+    return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag]));
+}
 
 // DOM Elements
 const titleInput = document.getElementById('note-title');
@@ -24,6 +30,22 @@ const modalTitle = document.getElementById('modal-title');
 const modalMessage = document.getElementById('modal-message');
 const modalIconContainer = document.getElementById('modal-icon-container');
 // Note: modalConfirm & modalCancel are dynamically fetched inside showModal to prevent crash
+
+function saveData() {
+    try {
+        const jsonString = JSON.stringify(notes);
+        // এনকোড করে সেভ করা হচ্ছে
+        localStorage.setItem('trox_database', btoa(encodeURIComponent(jsonString)));
+        
+        // UI আপডেট
+        if(saveStatus) {
+            saveStatus.innerText = "Saved";
+            setTimeout(() => saveStatus.innerText = "", 2000);
+        }
+    } catch (error) {
+        console.error("Storage limit full or error saving data:", error);
+    }
+}
 
 // App Data State
 let notes = [];
@@ -117,15 +139,7 @@ function loadData() {
     }
 }
 
-let typingSaveTimeout; // পারফরম্যান্স ল্যাগ ঠেকানোর জন্য
-function saveCurrentNoteState() {
-    if (!currentNoteId) return;
-    const note = notes.find(n => n.id === currentNoteId);
-    if (note && !note.isLocked) {
-        note.title = titleInput.value;
-        note.content = editorInput.value;
-        note.lastUpdated = new Date().toISOString();
-        
+
         // UI Status update instantly
         saveStatus.innerText = "Saving...";
         
@@ -194,7 +208,8 @@ function renderSidebar() {
     noteListContainer.innerHTML = '';
     notes.forEach(note => {
         const dateStr = new Date(note.lastUpdated).toLocaleDateString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'});
-        const displayTitle = note.title.trim() === '' ? 'Untitled Note' : note.title;
+        const displayTitle = note.title.trim() === '' ? 'Untitled Note' : escapeHTML(note.title);
+
         
         const noteEl = document.createElement('div');
         noteEl.className = `note-item ${note.id === currentNoteId ? 'active' : ''}`;
